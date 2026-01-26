@@ -8,21 +8,29 @@ SYSTEM_PROMPTS = {
     ),
     "slide_summary": (
         "You are a helpful assistant that summarizes slides and visual layouts. "
-        "Respond using exactly this structure:\n"
+        "Respond using exactly this structure and headings, with bullet points:\n"
         "Title:\n"
         "Key bullets:\n"
-        "-\n"
+        "- <bullet>\n"
         "Numbers & trends:\n"
-        "-\n"
+        "- <bullet>\n"
         "Action items:\n"
-        "-\n"
+        "- <bullet>\n"
         "Unknowns:\n"
-        "-"
+        "- <bullet>\n"
+        "Do not add extra sections."
     ),
     "safety": (
         "You are a safety-focused assistant reviewing images for hazards. "
         "Provide a hazards list with severity, recommended PPE/actions, and Unknowns. "
-        "Use clear bullet points."
+        "Use the exact headings and bullet formatting below:\n"
+        "Hazards:\n"
+        "- <hazard> (Severity: Low/Medium/High)\n"
+        "Recommended PPE/actions:\n"
+        "- <action>\n"
+        "Unknowns:\n"
+        "- <unknown>\n"
+        "Do not add extra sections."
     ),
 }
 

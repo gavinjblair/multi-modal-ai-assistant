@@ -8,7 +8,7 @@ Starter implementation that follows the provided multimodal assistant specificat
 docker compose up --build
 ```
 
-Open `http://localhost:3000` in your browser. The default Docker setup uses the local Ollama backend and will pull the `llava:13b` model on first run.
+Open `http://localhost:3000` in your browser. The default Docker setup uses the local Ollama backend and will pull the `moondream:1.8b` model on first run.
 
 ## Project Layout
 
@@ -46,9 +46,10 @@ Environment variables (examples in `backend/.env.example`):
 ```
 VLM_BACKEND=ollama
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llava:13b
+OLLAMA_MODEL=moondream:1.8b
 SESSION_STORE=memory
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+REQUEST_TIMEOUT=120
 ```
 
 ## Running the Frontend

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import re
 from typing import List, Optional
 
 from PIL import Image, UnidentifiedImageError
@@ -20,6 +21,87 @@ def _validate_image(image_bytes: bytes) -> None:
             img.verify()
     except (UnidentifiedImageError, OSError) as exc:
         raise ValueError("Uploaded file is not a valid image.") from exc
+
+
+def _clean_text(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _first_sentences(text: str, max_sentences: int = 2) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [part.strip() for part in parts if part.strip()]
+    return sentences[:max_sentences]
+
+
+def _extract_bullets(text: str, max_points: int = 3) -> list[str]:
+    bullets: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("-", "*")):
+            bullet = stripped.lstrip("-* ").strip()
+            if bullet:
+                bullets.append(bullet)
+    if bullets:
+        return bullets[:max_points]
+    sentences = _first_sentences(text, max_points)
+    return sentences if sentences else ["Summary not provided."]
+
+
+def _derive_title(text: str) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if lines and len(lines[0]) <= 80:
+        return lines[0]
+    sentences = _first_sentences(text, 1)
+    if sentences:
+        return sentences[0][:80]
+    return "Untitled slide"
+
+
+def _ensure_slide_summary(answer: str) -> str:
+    required = ["Title:", "Key bullets:", "Numbers & trends:", "Action items:", "Unknowns:"]
+    lowered = answer.lower()
+    if all(section.lower() in lowered for section in required):
+        return answer
+    title = _derive_title(answer)
+    bullets = _extract_bullets(answer, 3)
+    bullet_lines = "\n".join(f"- {item}" for item in bullets)
+    return (
+        "Title:\n"
+        f"{title}\n"
+        "Key bullets:\n"
+        f"{bullet_lines}\n"
+        "Numbers & trends:\n"
+        "- Not specified.\n"
+        "Action items:\n"
+        "- Review slide details.\n"
+        "Unknowns:\n"
+        "- Full slide context."
+    )
+
+
+def _ensure_safety(answer: str) -> str:
+    required = ["Hazards:", "Recommended PPE/actions:", "Unknowns:"]
+    lowered = answer.lower()
+    if all(section.lower() in lowered for section in required):
+        return answer
+    cleaned = _clean_text(answer)
+    hazard_text = cleaned[:140] if cleaned else "Potential hazards visible in the scene."
+    return (
+        "Hazards:\n"
+        f"- {hazard_text} (Severity: Medium)\n"
+        "Recommended PPE/actions:\n"
+        "- Follow site PPE and keep a safe distance.\n"
+        "Unknowns:\n"
+        "- Hazards outside the frame or not visible."
+    )
+
+
+def _format_answer(mode: str, answer: str) -> str:
+    if mode == "slide_summary":
+        return _ensure_slide_summary(answer)
+    if mode == "safety":
+        return _ensure_safety(answer)
+    return answer
 
 
 class VLMService:
@@ -64,6 +146,8 @@ class VLMService:
             mode=mode,
             history=history_payload,
         )
+        if isinstance(result, dict) and "answer" in result:
+            result["answer"] = _format_answer(mode, result["answer"])
         result["backend_mode"] = backend_mode
         result["fallback_reason"] = fallback_reason
         return result

@@ -30,7 +30,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("OLLAMA_BASE_URL", "ollama_base_url"),
     )
     ollama_model: str = Field(
-        default="llava:13b",
+        default="moondream:1.8b",
         validation_alias=AliasChoices("OLLAMA_MODEL", "ollama_model"),
     )
 
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
         default="development", validation_alias=AliasChoices("ENVIRONMENT", "environment")
     )
     request_timeout: float = Field(
-        default=30.0, validation_alias=AliasChoices("REQUEST_TIMEOUT", "request_timeout")
+        default=120.0, validation_alias=AliasChoices("REQUEST_TIMEOUT", "request_timeout")
     )
 
     def backend_config_issue(self, backend: str) -> str | None:
@@ -89,6 +89,8 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             items = [item.strip() for item in value.split(",") if item.strip()]
             return tuple(items)
+        if isinstance(value, list):
+            return tuple(item for item in value if isinstance(item, str) and item.strip())
         return value  # type: ignore[return-value]
 
 

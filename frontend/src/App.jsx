@@ -17,6 +17,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [error, setError] = useState(null);
+  const [isModelWarming, setIsModelWarming] = useState(false);
   const textareaRef = useRef(null);
 
   const resetSession = () => {
@@ -26,6 +27,7 @@ function App() {
     setSessionId(null);
     setQuestionInput("");
     setError(null);
+    setIsModelWarming(false);
   };
 
   const handleImageSelected = (file) => {
@@ -84,12 +86,15 @@ function App() {
     });
 
     if (!response.ok) {
-      setError(response.error || "Something went wrong. Please try again.");
+      const message = response.error || "Something went wrong. Please try again.";
+      setError(message);
+      setIsModelWarming(/model is loading/i.test(message));
       setIsLoading(false);
       return;
     }
 
     const payload = response.data;
+    setIsModelWarming(false);
     setSessionId(payload.session_id);
     const historyWithMeta =
       payload.history?.map((msg, idx, arr) => {
@@ -114,6 +119,7 @@ function App() {
   const handleModeChange = (value) => {
     setMode(value);
     setError(null);
+    setIsModelWarming(false);
   };
 
   const validationMessage =
@@ -143,14 +149,22 @@ function App() {
               and text.
             </p>
           </div>
-          <button
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
-            onClick={resetSession}
-            aria-label="Start new session"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            New image
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="/about.html"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+            >
+              About
+            </a>
+            <button
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              onClick={resetSession}
+              aria-label="Start new session"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              New image
+            </button>
+          </div>
         </header>
 
         <main className="grid gap-4 lg:grid-cols-[360px,1fr]">
@@ -177,6 +191,11 @@ function App() {
 
           <section className="glass-panel p-4 flex flex-col gap-3 min-h-[540px]">
             <ChatWindow messages={messages} isLoading={isLoading} />
+            {isModelWarming && (
+              <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status">
+                Model warm-up in progress. First responses can take a minute or two.
+              </div>
+            )}
             {error && (
               <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100" role="alert">
                 {error}

@@ -21,7 +21,12 @@ export async function askQuestion({ imageFile, question, mode, sessionId, backen
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = body.detail || "Request failed.";
-      return { ok: false, error: detail };
+      const isModelBackendError =
+        response.status === 502 && /model backend error/i.test(detail);
+      const friendlyMessage = isModelBackendError
+        ? "Model is loading. Please wait 1–2 minutes and try again."
+        : detail;
+      return { ok: false, error: friendlyMessage };
     }
     const backendMode = body.backendMode || body.backend_mode;
     const fallbackReason = body.fallbackReason || body.fallback_reason;
