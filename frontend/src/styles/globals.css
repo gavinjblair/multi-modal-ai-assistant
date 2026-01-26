@@ -1,0 +1,51 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply box-border;
+}
+
+body {
+  @apply min-h-screen bg-mesh-gradient text-slate-100 font-sans antialiased;
+}
+
+.glass-panel {
+  @apply bg-white/10 border border-white/10 backdrop-blur-xl shadow-glass rounded-2xl;
+}
+
+.chip {
+  @apply inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 border border-white/10 bg-white/5 hover:bg-white/10;
+}
+
+.chip-active {
+  @apply bg-white/20 border-white/20 shadow-glow;
+}
+
+.text-gradient {
+  background: linear-gradient(120deg, #38bdf8, #a855f7, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.animate-dots:after {
+  content: " ";
+  animation: dotPulse 1.2s linear infinite;
+}
+
+@keyframes dotPulse {
+  0% {
+    content: " .";
+  }
+  33% {
+    content: " ..";
+  }
+  66% {
+    content: " ...";
+  }
+  100% {
+    content: " .";
+  }
+}
