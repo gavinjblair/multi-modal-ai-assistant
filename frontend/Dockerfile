@@ -1,9 +1,14 @@
-FROM node:20-alpine AS build
+# Build stage
+FROM node:20-slim AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+# Runtime stage: serve static files on Railway's $PORT
+FROM node:20-slim
+WORKDIR /app
+RUN npm i -g serve
+COPY --from=build /app/dist ./dist
+CMD ["sh", "-c", "serve -s dist -l $PORT"]
