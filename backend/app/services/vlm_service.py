@@ -61,7 +61,10 @@ def _ensure_slide_summary(answer: str) -> str:
     required = ["Title:", "Key bullets:", "Numbers & trends:", "Action items:", "Unknowns:"]
     lowered = answer.lower()
     if all(section.lower() in lowered for section in required):
-        return answer
+        normalized = _normalize_section_bullets(
+            answer, ["Key bullets:", "Numbers & trends:", "Action items:", "Unknowns:"]
+        )
+        return _collapse_title_section(normalized, required)
     title = _derive_title(answer)
     bullets = _extract_bullets(answer, 3)
     bullet_lines = "\n".join(f"- {item}" for item in bullets)
@@ -83,7 +86,7 @@ def _ensure_safety(answer: str) -> str:
     required = ["Hazards:", "Recommended PPE/actions:", "Unknowns:"]
     lowered = answer.lower()
     if all(section.lower() in lowered for section in required):
-        return answer
+        return _normalize_section_bullets(answer, ["Hazards:", "Recommended PPE/actions:", "Unknowns:"])
     cleaned = _clean_text(answer)
     hazard_text = cleaned[:140] if cleaned else "Potential hazards visible in the scene."
     return (
@@ -102,6 +105,92 @@ def _format_answer(mode: str, answer: str) -> str:
     if mode == "safety":
         return _ensure_safety(answer)
     return answer
+
+
+def _normalize_section_bullets(text: str, sections: list[str]) -> str:
+    lines = text.splitlines()
+    current_section = None
+    output_lines: list[str] = []
+    section_set = {section.lower(): section for section in sections}
+
+    def is_section(line: str) -> str | None:
+        trimmed = line.strip()
+        for section in sections:
+            if trimmed.lower().startswith(section.lower()):
+                return section
+        return None
+
+    for line in lines:
+        section = is_section(line)
+        if section:
+            current_section = section
+            output_lines.append(section)
+            continue
+
+        if current_section:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith(("-", "*")):
+                output_lines.append(f"- {stripped.lstrip('-* ').strip()}")
+            else:
+                output_lines.append(f"- {stripped}")
+        else:
+            output_lines.append(line)
+
+    # Ensure each section has at least one bullet line
+    normalized: list[str] = []
+    i = 0
+    while i < len(output_lines):
+        line = output_lines[i]
+        normalized.append(line)
+        if line in sections:
+            next_line = output_lines[i + 1] if i + 1 < len(output_lines) else ""
+            if not next_line.strip().startswith("-"):
+                normalized.append("- Not specified.")
+        i += 1
+
+    return "\n".join(normalized)
+
+
+def _collapse_title_section(text: str, sections: list[str]) -> str:
+    lines = text.splitlines()
+    section_set = {section.lower() for section in sections}
+    output_lines: list[str] = []
+    in_title = False
+    title_written = False
+    buffered_title_extras: list[str] = []
+
+    for line in lines:
+        trimmed = line.strip()
+        if trimmed.lower() in section_set:
+            in_title = trimmed.lower() == "title:"
+            title_written = False if in_title else title_written
+            if not in_title and buffered_title_extras:
+                output_lines.append("Key bullets:")
+                output_lines.extend(f"- {item}" for item in buffered_title_extras)
+                buffered_title_extras = []
+            output_lines.append(trimmed)
+            continue
+
+        if in_title:
+            if not trimmed:
+                continue
+            if not title_written:
+                output_lines.append(trimmed)
+                title_written = True
+            # Skip any extra lines in Title section
+            else:
+                buffered_title_extras.append(trimmed)
+            continue
+
+        output_lines.append(line)
+
+    if buffered_title_extras:
+        output_lines.append("Key bullets:")
+        output_lines.extend(f"- {item}" for item in buffered_title_extras)
+
+    return "\n".join(output_lines)
 
 
 class VLMService:
