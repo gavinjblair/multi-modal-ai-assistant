@@ -34,7 +34,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(settings.cors_origins),
+    allow_origins=[
+        "https://vision.blairautomate.co.uk",
+        "https://perceptive-grace-production-2b86.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
