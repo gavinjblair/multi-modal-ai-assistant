@@ -23,7 +23,13 @@ app.add_middleware(
 logger = logging.getLogger("app")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
-logger.info("ENV=%s IS_PROD=%s", ENV, IS_PROD)
+_settings = get_settings()
+logger.info(
+    "ENV=%s resolved_backend=%s OLLAMA_BASE_URL=%s",
+    ENV,
+    _settings.resolved_backend(),
+    _settings.ollama_base_url,
+)
 
 
 @app.post("/api/ask")
@@ -37,7 +43,7 @@ async def ask(
 ):
     settings = get_settings()
 
-    resolved_backend = "remote" if IS_PROD else (backend or settings.resolved_backend())
+    resolved_backend = "ollama" if IS_PROD else (backend or settings.resolved_backend())
 
     issue = settings.backend_config_issue(resolved_backend)
     if issue:

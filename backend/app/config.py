@@ -1,4 +1,6 @@
 import os
+
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -7,13 +9,16 @@ IS_PROD = ENV == "production"
 
 
 class Settings(BaseSettings):
-    backend: str = "ollama"
+    backend: str = Field(
+        default="ollama", validation_alias=AliasChoices("VLM_BACKEND", "BACKEND", "backend")
+    )
     ollama_base_url: str | None = None
+    ollama_model: str | None = None
     vlm_api_base_url: str | None = None
 
     def resolved_backend(self) -> str:
         if IS_PROD:
-            return "remote"
+            return "ollama"
         return self.backend
 
     def backend_config_issue(self, backend: str) -> str | None:
