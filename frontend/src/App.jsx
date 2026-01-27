@@ -109,24 +109,35 @@ function App() {
 
     const payload = response.data;
     setIsModelWarming(false);
-    setSessionId(payload.session_id);
-    const historyWithMeta =
-      payload.history?.map((msg, idx, arr) => {
+    if (payload.session_id) {
+      setSessionId(payload.session_id);
+    }
+    const meta = {
+      latencyMs: payload.latency_ms,
+      model: payload.model,
+      mode: payload.mode,
+      provider: payload.provider,
+      usage: payload.usage,
+      backendMode: payload.backendMode || payload.backend_mode,
+      fallbackReason: payload.fallbackReason || payload.fallback_reason,
+    };
+    if (Array.isArray(payload.history) && payload.history.length) {
+      const historyWithMeta = payload.history.map((msg, idx, arr) => {
         const base = { ...msg };
         if (idx === arr.length - 1 && msg.role === "assistant") {
-          base.meta = {
-            latencyMs: payload.latency_ms,
-            model: payload.model,
-            mode: payload.mode,
-            provider: payload.provider,
-            usage: payload.usage,
-            backendMode: payload.backendMode || payload.backend_mode,
-            fallbackReason: payload.fallbackReason || payload.fallback_reason,
-          };
+          base.meta = meta;
         }
         return base;
-      }) || [];
-    setMessages(historyWithMeta);
+      });
+      setMessages(historyWithMeta);
+    } else {
+      const assistantMessage = {
+        role: "assistant",
+        content: payload.answer || "No answer returned.",
+        meta,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    }
     setIsLoading(false);
   };
 
@@ -213,6 +224,11 @@ function App() {
 
           <section className="glass-panel p-4 flex flex-col gap-3 min-h-[540px]">
             <ChatWindow messages={messages} isLoading={isLoading} />
+            {isLoading && !error && !isModelWarming && (
+              <div className="rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-3 text-sm text-sky-100" role="status">
+                Waiting for model response...
+              </div>
+            )}
             {isModelWarming && (
               <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status">
                 Model warm-up in progress. First responses can take a minute or two.
