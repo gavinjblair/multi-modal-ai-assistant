@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,10 +25,12 @@ logger = logging.getLogger("app")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
 _settings = get_settings()
+_backend_from_env = (os.getenv("VLM_BACKEND") or "").strip().lower()
 logger.info(
-    "ENV=%s resolved_backend=%s OLLAMA_BASE_URL=%s",
+    "ENV=%s IS_PROD=%s VLM_BACKEND=%s OLLAMA_BASE_URL=%s",
     ENV,
-    _settings.resolved_backend(),
+    IS_PROD,
+    _backend_from_env or _settings.resolved_backend(),
     _settings.ollama_base_url,
 )
 
@@ -43,13 +46,20 @@ async def ask(
 ):
     settings = get_settings()
 
-    resolved_backend = "ollama" if IS_PROD else (backend or settings.resolved_backend())
+    backend_from_env = (os.getenv("VLM_BACKEND") or "").strip().lower()
+    backend_from_request = (backend or "").strip().lower()
+    if IS_PROD:
+        resolved_backend = backend_from_env or "remote"
+        resolution_reason = "env-or-default"
+    else:
+        resolved_backend = backend_from_request or backend_from_env or settings.resolved_backend() or "remote"
+        resolution_reason = "request-env-default"
 
     issue = settings.backend_config_issue(resolved_backend)
     if issue:
         raise HTTPException(status_code=500, detail=issue)
 
-    logger.info("Resolved backend: %s", resolved_backend)
+    logger.info("Resolved backend: %s (%s)", resolved_backend, resolution_reason)
 
     payload = {}
     if image is None and question is None:

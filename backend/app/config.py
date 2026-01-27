@@ -17,8 +17,6 @@ class Settings(BaseSettings):
     vlm_api_base_url: str | None = None
 
     def resolved_backend(self) -> str:
-        if IS_PROD:
-            return "ollama"
         return self.backend
 
     def backend_config_issue(self, backend: str) -> str | None:
