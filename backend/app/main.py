@@ -9,7 +9,7 @@ from uuid import uuid4
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
+from app.config import IS_PROD, ENV, get_settings
 from app.models.schemas import AskResponse, ErrorResponse, Message
 from app.services.logging_utils import (
     clear_request_context,
@@ -25,6 +25,7 @@ from app.services.vlm_service import VLMService
 settings = get_settings()
 configure_logging(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 logger = get_logger(__name__)
+logger.info("ENV=%s IS_PROD=%s", ENV, IS_PROD)
 
 app = FastAPI(
     title="Multi-Modal Vision-Language Assistant",
@@ -130,7 +131,7 @@ async def ask(
     backend_override = None
     if backend is not None:
         normalized = backend.strip().lower()
-        if normalized and normalized not in {"auto", "ollama", "stub"}:
+        if normalized and normalized not in {"auto", "ollama", "stub", "remote"}:
             raise HTTPException(
                 status_code=400,
                 detail="Invalid backend selection.",
@@ -140,8 +141,13 @@ async def ask(
             backend_override = "ollama"
         elif normalized == "ollama":
             backend_override = "ollama"
+        elif normalized == "remote":
+            backend_override = "remote"
         elif normalized == "stub":
             backend_override = "stub"
+
+    resolved_backend = "remote" if IS_PROD else backend_override or settings.model_backend
+    logger.info("Resolved backend: %s", resolved_backend)
 
     session = _sessions.start(session_id)
     set_session_context(session)
@@ -156,7 +162,7 @@ async def ask(
             question=question,
             mode=mode,
             history=history,
-            backend=backend_override,
+            backend=resolved_backend,
         )
     except HTTPException:
         raise

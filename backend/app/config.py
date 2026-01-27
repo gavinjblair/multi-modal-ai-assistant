@@ -1,5 +1,6 @@
 """Application settings loaded from environment variables."""
 
+import os
 from functools import lru_cache
 from typing import Literal, Tuple
 
@@ -72,6 +73,9 @@ class Settings(BaseSettings):
     request_timeout: float = Field(
         default=120.0, validation_alias=AliasChoices("REQUEST_TIMEOUT", "request_timeout")
     )
+
+ENV = os.getenv("ENV", "development").lower()
+IS_PROD = ENV == "production"
 
     def backend_config_issue(self, backend: str) -> str | None:
         """Return a short code if backend configuration is unusable."""

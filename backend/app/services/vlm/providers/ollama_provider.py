@@ -7,7 +7,7 @@ import base64
 import httpx
 from fastapi import HTTPException
 
-from app.config import Settings
+from app.config import IS_PROD, Settings
 from app.services.logging_utils import get_logger
 from app.services.vlm.prompts import get_system_prompt
 
@@ -27,6 +27,8 @@ class OllamaProvider:
         mode: str,
         history: list[dict] | None,
     ) -> dict:
+        if IS_PROD:
+            raise RuntimeError("Ollama backend is disabled in production")
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         system_prompt = get_system_prompt(mode)
         messages: list[dict] = [{"role": "system", "content": system_prompt}]
