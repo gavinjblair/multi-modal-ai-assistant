@@ -7,12 +7,26 @@ import ImageUploader from "./components/ImageUploader";
 import ModeSelector from "./components/ModeSelector";
 import { askQuestion } from "./api/client";
 
+const getResolvedBackend = () => {
+  const stored = window.localStorage.getItem("mmva-backend");
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+  if (stored) {
+    if (!isLocalhost && stored === "ollama") {
+      window.localStorage.setItem("mmva-backend", "remote");
+      return "remote";
+    }
+    return stored;
+  }
+  return isLocalhost ? "ollama" : "remote";
+};
+
 function App() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [messages, setMessages] = useState([]);
   const [mode, setMode] = useState("general");
-  const [backend, setBackend] = useState("ollama");
+  const [backend, setBackend] = useState(() => getResolvedBackend());
   const [questionInput, setQuestionInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
@@ -122,6 +136,11 @@ function App() {
     setIsModelWarming(false);
   };
 
+  const handleBackendChange = (value) => {
+    setBackend(value);
+    window.localStorage.setItem("mmva-backend", value);
+  };
+
   const validationMessage =
     !imageFile || !questionInput.trim()
       ? !imageFile
@@ -171,7 +190,7 @@ function App() {
           <section className="glass-panel p-4 space-y-4">
             <ImageUploader onFileSelected={handleImageSelected} imagePreview={imagePreview} />
             <ModeSelector mode={mode} onChange={handleModeChange} disabled={isLoading} />
-            <BackendSelector value={backend} onChange={setBackend} disabled={isLoading} />
+            <BackendSelector value={backend} onChange={handleBackendChange} disabled={isLoading} />
 
             <div className="glass-panel p-4 border-dashed border-white/15 bg-white/5">
               <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -185,6 +204,9 @@ function App() {
               </ul>
               <p className="text-xs text-slate-400 mt-3">
                 Supported formats: JPEG, PNG, WEBP. Session: {sessionId ? sessionId : "not started"}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                API: {import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"}
               </p>
             </div>
           </section>

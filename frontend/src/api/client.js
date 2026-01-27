@@ -8,7 +8,7 @@ export async function askQuestion({ imageFile, question, mode, sessionId, backen
   if (sessionId) {
     formData.append("session_id", sessionId);
   }
-  if (backend) {
+  if (backend && backend !== "remote") {
     formData.append("backend", backend);
   }
 
