@@ -23,7 +23,9 @@ const ChatWindow = ({ messages, isLoading }) => {
       aria-label="Chat messages"
     >
       {messages.length === 0 ? (
-        <div className="grid place-items-center h-full text-slate-400 text-sm">Upload an image and start asking questions.</div>
+        <div className="grid place-items-center h-full text-slate-400 text-sm">
+          Ask a question to get started. Image upload is optional.
+        </div>
       ) : (
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => (

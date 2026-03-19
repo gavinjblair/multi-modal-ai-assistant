@@ -1,21 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
 import { vi } from "vitest";
 import App from "./App";
 
-let autoSelectImage = false;
-
 vi.mock("./components/ImageUploader", () => ({
-  default: ({ onFileSelected }) => {
-    useEffect(() => {
-      if (autoSelectImage) {
-        const file = new File(["123"], "test.png", { type: "image/png" });
-        onFileSelected(file);
-      }
-      // Intentionally run once for test setup.
-    }, []);
-    return <div>UploaderMock</div>;
-  },
+  default: () => <div>UploaderMock</div>,
 }));
 
 vi.mock("./api/client", () => ({
@@ -26,21 +14,31 @@ import { askQuestion } from "./api/client";
 
 describe("App", () => {
   beforeEach(() => {
-    autoSelectImage = false;
     vi.clearAllMocks();
   });
 
-  it("disables send when no image is selected", () => {
+  it("allows sending a text-only question", async () => {
+    askQuestion.mockResolvedValue({
+      ok: true,
+      data: {
+        answer: "ok",
+      },
+    });
+
     render(<App />);
+    const input = screen.getByLabelText("Question input");
+    fireEvent.change(input, { target: { value: "What is here?" } });
+
     const button = screen.getByRole("button", { name: /send question/i });
-    expect(button).toBeDisabled();
+    expect(button).not.toBeDisabled();
     fireEvent.click(button);
-    expect(askQuestion).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(askQuestion).toHaveBeenCalledWith({ question: "What is here?" });
+    });
   });
 
   it("shows API error responses inline", async () => {
-    autoSelectImage = true;
-    const { askQuestion } = await import("./api/client");
     askQuestion.mockResolvedValue({ ok: false, error: "Backend error" });
 
     render(<App />);
@@ -57,8 +55,6 @@ describe("App", () => {
   });
 
   it("renders backend mode hint when metadata is provided", async () => {
-    autoSelectImage = true;
-    const { askQuestion } = await import("./api/client");
     askQuestion.mockResolvedValue({
       ok: true,
       data: {
@@ -87,9 +83,7 @@ describe("App", () => {
     });
   });
 
-  it("sends backend selection to the API", async () => {
-    autoSelectImage = true;
-    const { askQuestion } = await import("./api/client");
+  it("keeps backend selection in the UI but ignores it in API requests", async () => {
     askQuestion.mockResolvedValue({
       ok: true,
       data: {
@@ -117,6 +111,6 @@ describe("App", () => {
     await waitFor(() => {
       expect(askQuestion).toHaveBeenCalled();
     });
-    expect(askQuestion).toHaveBeenCalledWith(expect.objectContaining({ backend: "stub" }));
+    expect(askQuestion).toHaveBeenCalledWith({ question: "Question?" });
   });
 });

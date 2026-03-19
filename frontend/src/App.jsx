@@ -5,6 +5,7 @@ import ChatWindow from "./components/ChatWindow";
 import BackendSelector from "./components/BackendSelector";
 import ImageUploader from "./components/ImageUploader";
 import ModeSelector from "./components/ModeSelector";
+import { API_BASE_URL } from "./api/config";
 import { askQuestion } from "./api/client";
 
 const getResolvedBackend = () => {
@@ -22,7 +23,6 @@ const getResolvedBackend = () => {
 };
 
 function App() {
-  const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [messages, setMessages] = useState([]);
   const [mode, setMode] = useState("general");
@@ -35,7 +35,6 @@ function App() {
   const textareaRef = useRef(null);
 
   const resetSession = () => {
-    setImageFile(null);
     setImagePreview(null);
     setMessages([]);
     setSessionId(null);
@@ -46,7 +45,6 @@ function App() {
 
   const handleImageSelected = (file) => {
     if (!file) return;
-    setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
     setMessages([]);
     setSessionId(null);
@@ -75,11 +73,7 @@ function App() {
   const handleSend = async (event) => {
     event.preventDefault();
     const trimmed = questionInput.trim();
-    const validationMessage = !imageFile
-      ? "Please upload an image first."
-      : !trimmed
-        ? "Type a question to ask about this image."
-        : null;
+    const validationMessage = !trimmed ? "Type a question to ask the assistant." : null;
     if (validationMessage) {
       setError(validationMessage);
       return;
@@ -92,11 +86,7 @@ function App() {
     setError(null);
 
     const response = await askQuestion({
-      imageFile,
       question: trimmed,
-      mode,
-      sessionId,
-      backend,
     });
 
     if (!response.ok) {
@@ -153,12 +143,8 @@ function App() {
   };
 
   const validationMessage =
-    !imageFile || !questionInput.trim()
-      ? !imageFile
-        ? "Upload an image to start chatting."
-        : "Type a question to ask about this image."
-      : null;
-  const isSendDisabled = isLoading || !imageFile || !questionInput.trim();
+    !questionInput.trim() ? "Type a question to start chatting. Image upload is optional." : null;
+  const isSendDisabled = isLoading || !questionInput.trim();
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -217,7 +203,7 @@ function App() {
                 Supported formats: JPEG, PNG, WEBP. Session: {sessionId ? sessionId : "not started"}
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
-                API: {import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"}
+                API: {API_BASE_URL}
               </p>
             </div>
           </section>
@@ -259,7 +245,7 @@ function App() {
                 <textarea
                   ref={textareaRef}
                   rows={1}
-                  placeholder="Ask a question about the uploaded image..."
+                  placeholder="Ask a question..."
                   value={questionInput}
                   onChange={(e) => {
                     setError(null);

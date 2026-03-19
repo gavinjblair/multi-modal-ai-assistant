@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-By default the UI expects the backend at `http://127.0.0.1:8000`. Override with `VITE_API_BASE_URL` in a `.env` file.
+By default the UI targets `https://vision-api.gavinblair7.workers.dev`. Override with `VITE_API_BASE_URL` in a `.env` file if needed.
 
 ## Key Features
 
