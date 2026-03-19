@@ -15,8 +15,8 @@ const AboutPage = () => {
               Multi-Modal Vision-Language Assistant
             </h1>
             <p className="text-slate-300 text-sm md:text-base">
-              A local-first assistant that combines image understanding with natural language,
-              so you can ask questions about photos, screenshots, and slides in a structured way.
+              A Vercel-hosted frontend paired with a Cloudflare Worker API, served behind a single
+              custom domain for a simple text-first question flow.
             </p>
           </div>
           <a
@@ -32,17 +32,17 @@ const AboutPage = () => {
             <div className="space-y-3">
               <h2 className="text-xl font-semibold text-white">What it does</h2>
               <p className="text-slate-300 text-sm leading-relaxed">
-                Upload an image, pick a mode, and get a response tailored to your intent. General
-                mode gives a concise description, Safety mode focuses on hazards and PPE, and Slide
-                Summary mode produces a structured outline for presentations.
+                The current deployed experience accepts text questions and sends them to a lightweight
+                `/api/ask` endpoint. Some multimodal UI elements remain visible from the broader
+                prototype while the hosted API stays intentionally simple.
               </p>
             </div>
             <div className="space-y-3">
               <h2 className="text-xl font-semibold text-white">How it works</h2>
               <p className="text-slate-300 text-sm leading-relaxed">
-                The frontend sends the image and question to a FastAPI backend. The backend validates
-                inputs, keeps session history, and routes the request to a local Ollama model. Responses
-                are returned with latency and token metadata for transparency.
+                The React frontend is served from Vercel at the root domain. Requests to
+                `/api/ask` are routed separately to a Cloudflare Worker, which handles the API path
+                without replacing the homepage.
               </p>
             </div>
           </div>
@@ -52,27 +52,29 @@ const AboutPage = () => {
               <h2 className="text-xl font-semibold text-white">Tech stack</h2>
               <ul className="text-slate-300 text-sm space-y-2">
                 <li>- Frontend: React, Vite, Tailwind CSS, Framer Motion</li>
-                <li>- Backend: FastAPI, Pydantic, httpx, Pillow</li>
-                <li>- Model runtime: Ollama (local vision models)</li>
-                <li>- Optional: Redis for session storage</li>
+                <li>- Hosting: Vercel for the frontend, Cloudflare for DNS and Worker routing</li>
+                <li>- API: Cloudflare Worker on `/api/*` with a JSON `question` payload</li>
+                <li>- Legacy prototype: FastAPI backend retained in the repo for reference</li>
               </ul>
             </div>
             <div className="space-y-3">
-              <h2 className="text-xl font-semibold text-white">Structured modes</h2>
+              <h2 className="text-xl font-semibold text-white">Current status</h2>
               <p className="text-slate-300 text-sm leading-relaxed">
-                Mode-specific prompts are reinforced with server-side formatting. If a model returns
-                unstructured text, the backend post-processes it into the required sections for Safety
-                and Slide Summary. This keeps the output consistent even when models are noisy.
+                The interface still carries some controls from the broader multimodal concept, but
+                the deployed API contract is currently limited to:
+                <br />
+                <span className="font-mono text-sky-200">{'{ "question": string }'}</span>
               </p>
             </div>
           </div>
         </section>
 
         <section className="glass-panel p-6 space-y-4">
-          <h2 className="text-xl font-semibold text-white">Why local-first</h2>
+          <h2 className="text-xl font-semibold text-white">Deployment shape</h2>
           <p className="text-slate-300 text-sm leading-relaxed">
-            Running locally keeps your images on your machine, reduces dependency on external APIs,
-            and gives you control over model choice, performance, and privacy.
+            The intended end state is a single public domain: the homepage is served by Vercel and
+            only `/api/*` is handled by the Worker. That keeps the frontend and API neatly separated
+            while still feeling like one application.
           </p>
         </section>
 

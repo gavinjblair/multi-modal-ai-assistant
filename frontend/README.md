@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-By default the UI targets `https://vision-api.gavinblair7.workers.dev`. Override with `VITE_API_BASE_URL` in a `.env` file if needed.
+By default the UI targets `https://vision.blairautomate.co.uk` and sends requests to `/api/ask`. Override with `VITE_API_BASE_URL` in a `.env` file if needed.
 
 ## Key Features
 
