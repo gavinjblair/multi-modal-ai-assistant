@@ -29,6 +29,7 @@ function App() {
   const [backend, setBackend] = useState(() => getResolvedBackend());
   const [questionInput, setQuestionInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [error, setError] = useState(null);
   const textareaRef = useRef(null);
 
@@ -36,6 +37,7 @@ function App() {
     setImagePreview(null);
     setMessages([]);
     setQuestionInput("");
+    setIsImageProcessing(false);
     setError(null);
   };
 
@@ -44,6 +46,15 @@ function App() {
     setImagePreview(dataUrl);
     setMessages([]);
     setError(null);
+  };
+
+  const handleImageProcessingChange = (isProcessing) => {
+    setIsImageProcessing(isProcessing);
+    if (isProcessing) {
+      setImagePreview(null);
+      setMessages([]);
+      setError(null);
+    }
   };
 
   const autoSizeTextarea = () => {
@@ -60,7 +71,9 @@ function App() {
   const handleSend = async (event) => {
     event.preventDefault();
     const trimmed = questionInput.trim();
-    const validationMessage = !trimmed
+    const validationMessage = isImageProcessing
+      ? "Wait for the image to finish processing."
+      : !trimmed
       ? "Type a question to ask the assistant."
       : !imagePreview
         ? "Upload an image to ask the vision model."
@@ -131,10 +144,12 @@ function App() {
 
   const validationMessage = !questionInput.trim()
     ? "Type a question to start chatting."
+    : isImageProcessing
+      ? "Optimizing image for upload..."
     : !imagePreview
       ? "Upload an image to send with your question."
       : null;
-  const isSendDisabled = isLoading || !questionInput.trim() || !imagePreview;
+  const isSendDisabled = isLoading || isImageProcessing || !questionInput.trim() || !imagePreview;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -175,7 +190,11 @@ function App() {
 
         <main className="grid gap-4 lg:grid-cols-[360px,1fr]">
           <section className="glass-panel p-4 space-y-4">
-            <ImageUploader onFileSelected={handleImageSelected} imagePreview={imagePreview} />
+            <ImageUploader
+              onFileSelected={handleImageSelected}
+              imagePreview={imagePreview}
+              onProcessingChange={handleImageProcessingChange}
+            />
             <ModeSelector mode={mode} onChange={handleModeChange} disabled={isLoading} />
             <BackendSelector value={backend} onChange={handleBackendChange} disabled={isLoading} />
 
@@ -190,7 +209,7 @@ function App() {
                 <li>- Slides: &quot;Summarise the key bullet points from this slide.&quot;</li>
               </ul>
               <p className="text-xs text-slate-400 mt-3">
-                Supported formats: JPEG, PNG, WEBP. Add an image to each question.
+                Supported formats: JPEG, PNG, WEBP. Images are resized automatically before upload.
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
                 API: {API_BASE_URL}
