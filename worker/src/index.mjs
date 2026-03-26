@@ -197,6 +197,14 @@ export default {
       });
     }
 
+    try {
+      await env.AI.run(MODEL_NAME, {
+        prompt: "agree",
+      });
+    } catch {
+      // Ignore license acceptance errors once the model is already enabled.
+    }
+
     let requestBody;
     try {
       requestBody = await request.json();
