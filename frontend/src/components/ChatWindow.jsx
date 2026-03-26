@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import MessageBubble from "./MessageBubble";
+import { getModeConfig } from "../config/modes";
 
-const ChatWindow = ({ messages, isLoading }) => {
+const ChatWindow = ({ messages, isLoading, mode = "general" }) => {
   const containerRef = useRef(null);
+  const modeConfig = getModeConfig(mode);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -23,8 +25,16 @@ const ChatWindow = ({ messages, isLoading }) => {
       aria-label="Chat messages"
     >
       {messages.length === 0 ? (
-        <div className="grid place-items-center h-full text-slate-400 text-sm">
-          Upload an image and ask a question to get started.
+        <div className="grid place-items-center h-full text-center">
+          <div className={`max-w-md rounded-3xl border px-5 py-6 ${modeConfig.accent.card}`}>
+            <div className={`text-xs uppercase tracking-[0.18em] ${modeConfig.accent.subtle}`}>
+              {modeConfig.eyebrow}
+            </div>
+            <div className="mt-2 text-lg font-semibold text-white">
+              Upload an image and try the {modeConfig.label.toLowerCase()} lens
+            </div>
+            <p className="mt-2 text-sm text-slate-300">{modeConfig.description}</p>
+          </div>
         </div>
       ) : (
         <AnimatePresence initial={false}>
@@ -42,12 +52,12 @@ const ChatWindow = ({ messages, isLoading }) => {
         </AnimatePresence>
       )}
       {isLoading && (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs text-slate-200">
+        <div className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${modeConfig.accent.badge}`}>
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-300 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-200" />
           </span>
-          Assistant is thinking<span className="animate-dots" />
+          Building a {modeConfig.label.toLowerCase()} answer<span className="animate-dots" />
         </div>
       )}
     </div>
