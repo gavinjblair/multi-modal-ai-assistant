@@ -1,6 +1,34 @@
+const MODEL_NAME = "@cf/meta/llama-3.2-11b-vision-instruct";
 const DEFAULT_ALLOWED_ORIGIN = "https://vision.blairautomate.co.uk";
-const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_QUESTION_CHARS = 4_000;
+
+const MODE_PROMPTS = {
+  general: [
+    "Answer the user's question using the image as your primary evidence.",
+    "Describe visible details when they are relevant to the answer.",
+    "If something is unclear or not visible, say so plainly instead of guessing.",
+  ].join("\n"),
+  safety: [
+    "Provide a safety-focused review of the image.",
+    "Focus on hazards, unsafe behavior, warnings, blocked exits, spills, vehicles, machinery, sharp edges, electrical risks, fire risks, and missing PPE.",
+    "Use exactly these sections:",
+    "Hazards:",
+    "Recommended PPE/actions:",
+    "Unknowns:",
+    "Use concise bullet points under each section.",
+  ].join("\n"),
+  slide_summary: [
+    "Summarize the visible slide, deck, or document content.",
+    "Use exactly these sections:",
+    "Title:",
+    "Key bullets:",
+    "Numbers & trends:",
+    "Action items:",
+    "Unknowns:",
+    "Keep the answer concise and easy to scan.",
+    "If the image is not a slide or the text is not readable, say that clearly in Unknowns.",
+  ].join("\n"),
+};
 
 class WorkerHttpError extends Error {
   constructor(status, detail) {
@@ -12,27 +40,25 @@ class WorkerHttpError extends Error {
 
 const getAllowedOrigin = (env) => env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN;
 
-const json = (payload, status, env) =>
+const buildHeaders = (env, extraHeaders = {}) => ({
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Origin": getAllowedOrigin(env),
+  "Content-Type": "application/json",
+  Vary: "Origin",
+  ...extraHeaders,
+});
+
+const json = (payload, status, env, extraHeaders) =>
   new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Origin": getAllowedOrigin(env),
-      "Content-Type": "application/json",
-      Vary: "Origin",
-    },
+    headers: buildHeaders(env, extraHeaders),
   });
 
-const empty = (status, env) =>
+const empty = (status, env, extraHeaders) =>
   new Response(null, {
     status,
-    headers: {
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Origin": getAllowedOrigin(env),
-      Vary: "Origin",
-    },
+    headers: buildHeaders(env, extraHeaders),
   });
 
 const parsePositiveInt = (value, fallback) => {
@@ -40,124 +66,114 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const extractTextFromContent = (content) => {
-  if (typeof content === "string") {
-    return content.trim();
-  }
-
-  if (!Array.isArray(content)) {
-    return "";
-  }
-
-  const parts = content
-    .map((item) => {
-      if (typeof item === "string") {
-        return item;
-      }
-      if (item && typeof item.text === "string") {
-        return item.text;
-      }
-      if (item && typeof item.content === "string") {
-        return item.content;
-      }
-      return "";
-    })
-    .filter(Boolean);
-
-  return parts.join("\n").trim();
-};
-
 const extractAnswer = (payload) => {
+  if (payload && typeof payload.response?.answer === "string" && payload.response.answer.trim()) {
+    return payload.response.answer.trim();
+  }
+
+  if (payload && typeof payload.result?.response?.answer === "string" && payload.result.response.answer.trim()) {
+    return payload.result.response.answer.trim();
+  }
+
+  if (payload && typeof payload.response === "string" && payload.response.trim()) {
+    return payload.response.trim();
+  }
+
+  if (payload && typeof payload.result?.response === "string" && payload.result.response.trim()) {
+    return payload.result.response.trim();
+  }
+
   if (payload && typeof payload.answer === "string" && payload.answer.trim()) {
     return payload.answer.trim();
-  }
-
-  if (payload && typeof payload.output_text === "string" && payload.output_text.trim()) {
-    return payload.output_text.trim();
-  }
-
-  const messageContent = extractTextFromContent(payload?.message?.content);
-  if (messageContent) {
-    return messageContent;
-  }
-
-  const choiceContent = extractTextFromContent(payload?.choices?.[0]?.message?.content);
-  if (choiceContent) {
-    return choiceContent;
-  }
-
-  const outputItems = Array.isArray(payload?.output) ? payload.output : [];
-  for (const item of outputItems) {
-    const text = extractTextFromContent(item?.content);
-    if (text) {
-      return text;
-    }
   }
 
   return "";
 };
 
-const callUpstream = async (question, env) => {
-  if (!env.VLM_API_BASE_URL) {
-    throw new WorkerHttpError(500, "VLM_API_BASE_URL is not configured.");
+const validateMode = (mode) => {
+  if (typeof mode !== "string") {
+    throw new WorkerHttpError(400, "Mode must be one of: general, safety, slide_summary.");
   }
 
-  const headers = {
-    "Content-Type": "application/json",
-  };
-  if (env.VLM_API_KEY) {
-    headers.Authorization = `Bearer ${env.VLM_API_KEY}`;
+  const normalizedMode = mode.trim();
+  if (!Object.hasOwn(MODE_PROMPTS, normalizedMode)) {
+    throw new WorkerHttpError(400, "Mode must be one of: general, safety, slide_summary.");
   }
 
-  const upstreamPayload = {
-    question,
-  };
-  if (env.VLM_MODEL_NAME) {
-    upstreamPayload.model = env.VLM_MODEL_NAME;
+  return normalizedMode;
+};
+
+const normalizeImageDataUrl = (image) => {
+  if (typeof image !== "string" || !image.trim()) {
+    throw new WorkerHttpError(400, "Image must be a base64 data URL string.");
   }
 
-  const timeoutMs = parsePositiveInt(env.REQUEST_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const trimmed = image.trim();
+  const match = trimmed.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) {
+    throw new WorkerHttpError(400, "Image must be a valid base64 data URL.");
+  }
 
-  let response;
+  const [, mimeType, rawBase64] = match;
+  const base64 = rawBase64.replace(/\s+/g, "");
   try {
-    response = await fetch(env.VLM_API_BASE_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(upstreamPayload),
-      signal: controller.signal,
+    atob(base64);
+  } catch {
+    throw new WorkerHttpError(400, "Image must be a valid base64 data URL.");
+  }
+
+  return `data:${mimeType.toLowerCase()};base64,${base64}`;
+};
+
+const buildMessages = (question, mode) => [
+  {
+    role: "system",
+    content: [
+      "You are a careful multimodal assistant.",
+      "Ground every answer in the supplied image and the user's question.",
+      "Do not invent details that are not visible.",
+      MODE_PROMPTS[mode],
+    ].join("\n\n"),
+  },
+  {
+    role: "user",
+    content: `Mode: ${mode}\nQuestion: ${question}`,
+  },
+];
+
+const callWorkersAi = async ({ question, mode, image }, env) => {
+  if (!env.AI || typeof env.AI.run !== "function") {
+    throw new WorkerHttpError(500, "Workers AI binding is not configured.");
+  }
+
+  let responsePayload;
+  try {
+    responsePayload = await env.AI.run(MODEL_NAME, {
+      messages: buildMessages(question, mode),
+      image,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          type: "object",
+          properties: {
+            answer: { type: "string" },
+          },
+          required: ["answer"],
+          additionalProperties: false,
+        },
+      },
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new WorkerHttpError(504, "Upstream AI request timed out.");
-    }
-    throw new WorkerHttpError(502, "Failed to reach upstream AI service.");
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  let responsePayload = null;
-  try {
-    responsePayload = await response.json();
-  } catch {
-    if (!response.ok) {
-      throw new WorkerHttpError(502, `Upstream AI service returned HTTP ${response.status}.`);
-    }
-    throw new WorkerHttpError(502, "Upstream AI service returned invalid JSON.");
-  }
-
-  if (!response.ok) {
     const detail =
-      responsePayload?.detail ||
-      responsePayload?.error?.message ||
-      `Upstream AI service returned HTTP ${response.status}.`;
+      error instanceof Error && error.message
+        ? `Workers AI request failed: ${error.message}`
+        : "Workers AI request failed.";
     throw new WorkerHttpError(502, detail);
   }
 
   const answer = extractAnswer(responsePayload);
   if (!answer) {
-    throw new WorkerHttpError(502, "Upstream AI service returned no answer.");
+    throw new WorkerHttpError(502, "Workers AI returned an unexpected response shape.");
   }
 
   return answer;
@@ -176,7 +192,9 @@ export default {
     }
 
     if (request.method !== "POST") {
-      return json({ detail: "Method Not Allowed" }, 405, env);
+      return json({ detail: "Method Not Allowed" }, 405, env, {
+        Allow: "POST, OPTIONS",
+      });
     }
 
     let requestBody;
@@ -205,7 +223,9 @@ export default {
     }
 
     try {
-      const answer = await callUpstream(question, env);
+      const mode = validateMode(requestBody?.mode);
+      const image = normalizeImageDataUrl(requestBody?.image);
+      const answer = await callWorkersAi({ question, mode, image }, env);
       return json({ answer }, 200, env);
     } catch (error) {
       if (error instanceof WorkerHttpError) {

@@ -1,7 +1,2 @@
-VLM_API_BASE_URL=https://your-upstream-ai-endpoint.example.com/api/ask
-VLM_API_KEY=
-VLM_MODEL_NAME=
-REQUEST_TIMEOUT_MS=60000
 MAX_QUESTION_CHARS=4000
 ALLOWED_ORIGIN=https://vision.blairautomate.co.uk
-

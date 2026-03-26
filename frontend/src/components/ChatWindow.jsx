@@ -24,7 +24,7 @@ const ChatWindow = ({ messages, isLoading }) => {
     >
       {messages.length === 0 ? (
         <div className="grid place-items-center h-full text-slate-400 text-sm">
-          Ask a question to get started. Image upload is optional.
+          Upload an image and ask a question to get started.
         </div>
       ) : (
         <AnimatePresence initial={false}>

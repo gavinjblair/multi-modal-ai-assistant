@@ -29,25 +29,20 @@ function App() {
   const [backend, setBackend] = useState(() => getResolvedBackend());
   const [questionInput, setQuestionInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
   const [error, setError] = useState(null);
-  const [isModelWarming, setIsModelWarming] = useState(false);
   const textareaRef = useRef(null);
 
   const resetSession = () => {
     setImagePreview(null);
     setMessages([]);
-    setSessionId(null);
     setQuestionInput("");
     setError(null);
-    setIsModelWarming(false);
   };
 
-  const handleImageSelected = (file) => {
-    if (!file) return;
-    setImagePreview(URL.createObjectURL(file));
+  const handleImageSelected = (dataUrl) => {
+    if (!dataUrl) return;
+    setImagePreview(dataUrl);
     setMessages([]);
-    setSessionId(null);
     setError(null);
   };
 
@@ -62,18 +57,14 @@ function App() {
     autoSizeTextarea();
   }, [questionInput]);
 
-  useEffect(() => {
-    return () => {
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-      }
-    };
-  }, [imagePreview]);
-
   const handleSend = async (event) => {
     event.preventDefault();
     const trimmed = questionInput.trim();
-    const validationMessage = !trimmed ? "Type a question to ask the assistant." : null;
+    const validationMessage = !trimmed
+      ? "Type a question to ask the assistant."
+      : !imagePreview
+        ? "Upload an image to ask the vision model."
+        : null;
     if (validationMessage) {
       setError(validationMessage);
       return;
@@ -87,25 +78,22 @@ function App() {
 
     const response = await askQuestion({
       question: trimmed,
+      mode,
+      image: imagePreview,
     });
 
     if (!response.ok) {
       const message = response.error || "Something went wrong. Please try again.";
       setError(message);
-      setIsModelWarming(/model is loading/i.test(message));
       setIsLoading(false);
       return;
     }
 
     const payload = response.data;
-    setIsModelWarming(false);
-    if (payload.session_id) {
-      setSessionId(payload.session_id);
-    }
     const meta = {
       latencyMs: payload.latency_ms,
       model: payload.model,
-      mode: payload.mode,
+      mode: payload.mode || mode,
       provider: payload.provider,
       usage: payload.usage,
       backendMode: payload.backendMode || payload.backend_mode,
@@ -134,7 +122,6 @@ function App() {
   const handleModeChange = (value) => {
     setMode(value);
     setError(null);
-    setIsModelWarming(false);
   };
 
   const handleBackendChange = (value) => {
@@ -142,9 +129,12 @@ function App() {
     window.localStorage.setItem("mmva-backend", value);
   };
 
-  const validationMessage =
-    !questionInput.trim() ? "Type a question to start chatting. Image upload is optional." : null;
-  const isSendDisabled = isLoading || !questionInput.trim();
+  const validationMessage = !questionInput.trim()
+    ? "Type a question to start chatting."
+    : !imagePreview
+      ? "Upload an image to send with your question."
+      : null;
+  const isSendDisabled = isLoading || !questionInput.trim() || !imagePreview;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -196,11 +186,11 @@ function App() {
               </div>
               <ul className="mt-2 space-y-2 text-sm text-slate-200">
                 <li>- Ask about layout: &quot;Describe the objects and their positions.&quot;</li>
-                <li>- Safety: &quot;Flag any sensitive content in this screenshot.&quot;</li>
+                <li>- Safety: &quot;Point out any hazards, risks, or unsafe behavior in this image.&quot;</li>
                 <li>- Slides: &quot;Summarise the key bullet points from this slide.&quot;</li>
               </ul>
               <p className="text-xs text-slate-400 mt-3">
-                Supported formats: JPEG, PNG, WEBP. Session: {sessionId ? sessionId : "not started"}
+                Supported formats: JPEG, PNG, WEBP. Add an image to each question.
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
                 API: {API_BASE_URL}
@@ -210,14 +200,9 @@ function App() {
 
           <section className="glass-panel p-4 flex flex-col gap-3 min-h-[540px]">
             <ChatWindow messages={messages} isLoading={isLoading} />
-            {isLoading && !error && !isModelWarming && (
+            {isLoading && !error && (
               <div className="rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-3 text-sm text-sky-100" role="status">
                 Waiting for model response...
-              </div>
-            )}
-            {isModelWarming && (
-              <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status">
-                Model warm-up in progress. First responses can take a minute or two.
               </div>
             )}
             {error && (

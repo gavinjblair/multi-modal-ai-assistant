@@ -4,12 +4,26 @@ import { ImagePlus, UploadCloud } from "lucide-react";
 
 const MAX_MB = 5;
 
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string" && reader.result.startsWith("data:image/")) {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Invalid image data URL."));
+    };
+    reader.onerror = () => reject(new Error("Failed to read image."));
+    reader.readAsDataURL(file);
+  });
+
 const ImageUploader = ({ onFileSelected, imagePreview }) => {
   const inputRef = useRef(null);
   const [localError, setLocalError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const validateAndSet = (file) => {
+  const validateAndSet = async (file) => {
     if (!file) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
       setLocalError("Please choose a PNG, JPEG, or WEBP image.");
@@ -19,8 +33,13 @@ const ImageUploader = ({ onFileSelected, imagePreview }) => {
       setLocalError(`Image is too large. Max ${MAX_MB}MB.`);
       return;
     }
-    setLocalError(null);
-    onFileSelected(file);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setLocalError(null);
+      onFileSelected(dataUrl);
+    } catch {
+      setLocalError("Couldn't read that image. Please try another file.");
+    }
   };
 
   const handleFileChange = (event) => {

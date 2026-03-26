@@ -2,8 +2,14 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import App from "./App";
 
+const TEST_IMAGE = "data:image/png;base64,ZmFrZQ==";
+
 vi.mock("./components/ImageUploader", () => ({
-  default: () => <div>UploaderMock</div>,
+  default: ({ onFileSelected }) => (
+    <button type="button" onClick={() => onFileSelected(TEST_IMAGE)}>
+      UploaderMock
+    </button>
+  ),
 }));
 
 vi.mock("./api/client", () => ({
@@ -17,7 +23,7 @@ describe("App", () => {
     vi.clearAllMocks();
   });
 
-  it("allows sending a text-only question", async () => {
+  it("sends question, mode, and image to the worker", async () => {
     askQuestion.mockResolvedValue({
       ok: true,
       data: {
@@ -26,6 +32,7 @@ describe("App", () => {
     });
 
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /uploadermock/i }));
     const input = screen.getByLabelText("Question input");
     fireEvent.change(input, { target: { value: "What is here?" } });
 
@@ -34,14 +41,33 @@ describe("App", () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(askQuestion).toHaveBeenCalledWith({ question: "What is here?" });
+      expect(askQuestion).toHaveBeenCalledWith({
+        question: "What is here?",
+        mode: "general",
+        image: TEST_IMAGE,
+      });
     });
+  });
+
+  it("blocks submit until an image is selected", async () => {
+    render(<App />);
+
+    const input = screen.getByLabelText("Question input");
+    fireEvent.change(input, { target: { value: "What is here?" } });
+
+    const button = screen.getByRole("button", { name: /send question/i });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+
+    expect(askQuestion).not.toHaveBeenCalled();
+    expect(screen.getByText(/upload an image to send with your question/i)).toBeInTheDocument();
   });
 
   it("shows API error responses inline", async () => {
     askQuestion.mockResolvedValue({ ok: false, error: "Backend error" });
 
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /uploadermock/i }));
     const input = screen.getByLabelText("Question input");
     fireEvent.change(input, { target: { value: "What is here?" } });
 
@@ -73,6 +99,7 @@ describe("App", () => {
     });
 
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /uploadermock/i }));
     const input = screen.getByLabelText("Question input");
     fireEvent.change(input, { target: { value: "Question?" } });
     const button = screen.getByRole("button", { name: /send question/i });
@@ -100,6 +127,7 @@ describe("App", () => {
     });
 
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /uploadermock/i }));
     const backendSelect = screen.getByLabelText(/backend/i);
     fireEvent.change(backendSelect, { target: { value: "stub" } });
 
@@ -111,6 +139,10 @@ describe("App", () => {
     await waitFor(() => {
       expect(askQuestion).toHaveBeenCalled();
     });
-    expect(askQuestion).toHaveBeenCalledWith({ question: "Question?" });
+    expect(askQuestion).toHaveBeenCalledWith({
+      question: "Question?",
+      mode: "general",
+      image: TEST_IMAGE,
+    });
   });
 });
