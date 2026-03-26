@@ -125,7 +125,7 @@ const normalizeImageDataUrl = (image) => {
   return `data:${mimeType.toLowerCase()};base64,${base64}`;
 };
 
-const buildMessages = (question, mode) => [
+const buildMessages = (question, mode, image) => [
   {
     role: "system",
     content: [
@@ -137,7 +137,18 @@ const buildMessages = (question, mode) => [
   },
   {
     role: "user",
-    content: `Mode: ${mode}\nQuestion: ${question}`,
+    content: [
+      {
+        type: "text",
+        text: `Mode: ${mode}\nQuestion: ${question}`,
+      },
+      {
+        type: "image_url",
+        image_url: {
+          url: image,
+        },
+      },
+    ],
   },
 ];
 
@@ -149,8 +160,7 @@ const callWorkersAi = async ({ question, mode, image }, env) => {
   let responsePayload;
   try {
     responsePayload = await env.AI.run(MODEL_NAME, {
-      messages: buildMessages(question, mode),
-      image,
+      messages: buildMessages(question, mode, image),
       response_format: {
         type: "json_schema",
         json_schema: {
@@ -195,14 +205,6 @@ export default {
       return json({ detail: "Method Not Allowed" }, 405, env, {
         Allow: "POST, OPTIONS",
       });
-    }
-
-    try {
-      await env.AI.run(MODEL_NAME, {
-        prompt: "agree",
-      });
-    } catch {
-      // Ignore license acceptance errors once the model is already enabled.
     }
 
     let requestBody;
